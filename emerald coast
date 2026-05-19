@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Emerald Coast - Sonic Dimensions</title>
+
+<style>
+
+body{
+    margin:0;
+    overflow:hidden;
+    background:linear-gradient(to bottom,#4fd0ff,#87e8ff,#ffffff);
+    font-family:Arial, Helvetica, sans-serif;
+}
+
+/* GAME AREA */
+canvas{
+    display:block;
+    background:
+    linear-gradient(to bottom,#58d8ff 0%, #8be9ff 45%, #f4e98c 46%, #e0c96c 100%);
+}
+
+/* HUD */
+.hud{
+    position:absolute;
+    top:10px;
+    left:10px;
+    color:white;
+    font-size:24px;
+    font-weight:bold;
+    text-shadow:2px 2px 5px black;
+    z-index:10;
+}
+
+.level-title{
+    position:absolute;
+    top:20px;
+    width:100%;
+    text-align:center;
+    font-size:42px;
+    font-weight:bold;
+    color:white;
+    text-shadow:0 0 10px blue;
+    animation:fadeOut 5s forwards;
+}
+
+@keyframes fadeOut{
+    0%{
+        opacity:1;
+    }
+
+    70%{
+        opacity:1;
+    }
+
+    100%{
+        opacity:0;
+    }
+}
+
+/* Mobile Controls */
+.mobile-controls{
+    position:absolute;
+    bottom:20px;
+    width:100%;
+    display:flex;
+    justify-content:space-between;
+    padding:20px;
+    box-sizing:border-box;
+}
+
+.control-btn{
+    width:80px;
+    height:80px;
+    border-radius:50%;
+    background:rgba(255,255,255,0.25);
+    backdrop-filter:blur(5px);
+    border:2px solid white;
+    color:white;
+    font-size:30px;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    user-select:none;
+}
+
+/* Chromebook friendly */
+@media(max-width:700px){
+
+    .control-btn{
+        width:65px;
+        height:65px;
+    }
+
+    .level-title{
+        font-size:30px;
+    }
+
+}
+
+</style>
+</head>
+
+<body>
+
+<div class="hud">
+    Rings: <span id="rings">0</span>
+</div>
+
+<div class="level-title">
+    EMERALD COAST
+</div>
+
+<canvas id="game"></canvas>
+
+<!-- Mobile controls -->
+<div class="mobile-controls">
+
+    <div style="display:flex; gap:10px;">
+        <div class="control-btn" id="leftBtn">◀</div>
+        <div class="control-btn" id="rightBtn">▶</div>
+    </div>
+
+    <div class="control-btn" id="jumpBtn">▲</div>
+
+</div>
+
+<script>
+
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
+/* PLAYER */
+
+const sonic = {
+
+    x:100,
+    y:300,
+    width:60,
+    height:60,
+
+    speed:0,
+    maxSpeed:8,
+
+    velY:0,
+    gravity:0.8,
+
+    jumping:false,
+
+    rings:0
+
+};
+
+/* CONTROLS */
+
+const keys = {};
+
+document.addEventListener("keydown",(e)=>{
+    keys[e.key] = true;
+});
+
+document.addEventListener("keyup",(e)=>{
+    keys[e.key] = false;
+});
+
+/* MOBILE */
+
+document.getElementById("leftBtn").ontouchstart = ()=>{
+    keys["ArrowLeft"] = true;
+};
+
+document.getElementById("leftBtn").ontouchend = ()=>{
+    keys["ArrowLeft"] = false;
+};
+
+document.getElementById("rightBtn").ontouchstart = ()=>{
+    keys["ArrowRight"] = true;
+};
+
+document.getElementById("rightBtn").ontouchend = ()=>{
+    keys["ArrowRight"] = false;
+};
+
+document.getElementById("jumpBtn").ontouchstart = ()=>{
+
+    if(!sonic.jumping){
+
+        sonic.velY = -15;
+        sonic.jumping = true;
+
+    }
+
+};
+
+/* RINGS */
+
+const rings = [];
+
+for(let i=0;i<20;i++){
+
+    rings.push({
+
+        x:400 + i * 180,
+        y:300 + Math.sin(i)*100,
+        collected:false
+
+    });
+
+}
+
+/* LOOP */
+
+function update(){
+
+    /* MOVE */
+
+    if(keys["ArrowRight"]){
+
+        sonic.speed = sonic.maxSpeed;
+
+    }
+    else if(keys["ArrowLeft"]){
+
+        sonic.speed = -sonic.maxSpeed;
+
+    }
+    else{
+
+        sonic.speed *= 0.8;
+
+    }
+
+    sonic.x += sonic.speed;
+
+    /* JUMP */
+
+    if(keys[" "] && !sonic.jumping){
+
+        sonic.velY = -15;
+        sonic.jumping = true;
+
+    }
+
+    sonic.velY += sonic.gravity;
+    sonic.y += sonic.velY;
+
+    /* GROUND */
+
+    const ground = canvas.height - 180;
+
+    if(sonic.y >= ground){
+
+        sonic.y = ground;
+        sonic.velY = 0;
+        sonic.jumping = false;
+
+    }
+
+    /* CAMERA */
+
+    ctx.setTransform(1,0,0,1,0,0);
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+
+    ctx.translate(-sonic.x + 200,0);
+
+    drawLevel();
+
+    /* RINGS */
+
+    rings.forEach(ring=>{
+
+        if(!ring.collected){
+
+            ctx.beginPath();
+            ctx.strokeStyle = "gold";
+            ctx.lineWidth = 6;
+            ctx.arc(ring.x,ring.y,15,0,Math.PI*2);
+            ctx.stroke();
+
+            let dx = sonic.x - ring.x;
+            let dy = sonic.y - ring.y;
+
+            if(Math.abs(dx) < 40 && Math.abs(dy) < 40){
+
+                ring.collected = true;
+                sonic.rings++;
+
+                document.getElementById("rings").innerHTML =
+                sonic.rings;
+
+            }
+
+        }
+
+    });
+
+    /* PLAYER */
+
+    ctx.fillStyle = "#0066ff";
+
+    ctx.beginPath();
+    ctx.arc(
+        sonic.x,
+        sonic.y,
+        sonic.width/2,
+        0,
+        Math.PI*2
+    );
+    ctx.fill();
+
+    /* SONIC EYES */
+
+    ctx.fillStyle = "white";
+
+    ctx.fillRect(sonic.x+8,sonic.y-12,8,14);
+    ctx.fillRect(sonic.x-2,sonic.y-12,8,14);
+
+    requestAnimationFrame(update);
+
+}
+
+/* DRAW LEVEL */
+
+function drawLevel(){
+
+    /* Ocean */
+
+    ctx.fillStyle = "#009dff";
+    ctx.fillRect(-2000,canvas.height-140,6000,300);
+
+    /* Sand */
+
+    ctx.fillStyle = "#d8c36f";
+    ctx.fillRect(-2000,canvas.height-180,6000,40);
+
+    /* Palm trees */
+
+    for(let i=0;i<25;i++){
+
+        let x = i * 500;
+
+        ctx.fillStyle = "#8b5a2b";
+        ctx.fillRect(x,canvas.height-340,25,160);
+
+        ctx.fillStyle = "green";
+
+        ctx.beginPath();
+        ctx.arc(x+12,canvas.height-360,60,0,Math.PI*2);
+        ctx.fill();
+
+    }
+
+    /* Loop decoration */
+
+    ctx.strokeStyle = "#ffaa00";
+    ctx.lineWidth = 20;
+
+    ctx.beginPath();
+    ctx.arc(1800,canvas.height-250,100,0,Math.PI*2);
+    ctx.stroke();
+
+}
+
+update();
+
+</script>
+
+</body>
+</html>
